@@ -1,18 +1,3 @@
-# from flask import Flask
-# app = Flask(__name__)
-
-# @app.route('/')
-# def hello_world():
-#     return 'Hello, Docker!'
-
-# # TODO add a login for spotify, with cookies saving the user's spotify id as the user's id
-# @app.route('/login')
-# def login():
-#     return 'Login'
-
-# if __name__ == '__main__':
-#     app.run(debug=True)
-
 import os
 from flask import Flask, session, request, redirect, abort
 from flask_session import Session
