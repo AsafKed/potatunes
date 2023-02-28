@@ -16,33 +16,63 @@ from selenium.webdriver.common.by import By
 class API:
   def __init__(self):
     self.ACCESS_TOKEN = None
-    self.refreshToken()
-    # self.getPlaylists()
+    self.REFRESH_TOKEN = None
+    self.requestToken()
+    # self.ClientCredentialsFlow()
 
-  def refreshToken(self):
+  def requestToken(self):
+    # TODO check if this works
+    if self.ACCESS_TOKEN != None:
+      print("Access token already exists. Refreshing the token.")
+      self.refreshToken()
+
     try:
       self.ImplicitGrantFlow()
     except:
       if self.ACCESS_TOKEN == None:
         self.ClientCredentialsFlow()
-        # Check if any driver windows are open and if so then close them
-        # This is a hacky way to close the driver windows, but it works for now.
+        # Check if any self.driver windows are open and if so then close them
+        # This is a hacky way to close the self.driver windows, but it works for now.
         # TODO fix this
         try:
-          os.system("taskkill /im geckodriver.exe /f")
-          os.system("taskkill /im firefox.exe /f")
+          self.driver.quit()
         except:
           pass
-        print("Client Credential Flow. If you wish to alter user playlists, look up how to run selenium with the Firefox driver.")
+        print("Client Credential Flow. If you wish to alter user playlists, look up how to run selenium with the Firefox self.driver.")
+
+  # TODO check if this works
+  def refreshToken(self):
+    if self.REFRESH_TOKEN == None:
+      # TODO turn into an error log
+      print("No refresh token. Please run the Implicit Grant Flow first.")
+      return
+
+    url = "https://accounts.spotify.com/api/token"
+
+    headers = {
+      "Authorization": f"Basic {base64.b64encode(bytes(os.environ.get('CLIENT_ID') + ':' + os.environ.get('CLIENT_SECRET'), 'ISO-8859-1')).decode('ascii')}",
+      "Content-Type": "application/x-www-form-urlencoded"
+    }
+
+    body = {
+      "grant_type": "refresh_token",
+      "refresh_token": self.REFRESH_TOKEN
+    }
+
+    res = requests.post(url, headers=headers, data=body)
+    res = res.json()
+
+    self.ACCESS_TOKEN = res['access_token']
+    self.REFRESH_TOKEN = res['refresh_token']
 
   def RunServer(self):
     # cwd = os.getcwd()
     filepath = str(pathlib.Path(__file__).resolve().parent)
     print('filepath', filepath)
-    implicit_path = filepath.split(sep="/")
-    implicit_path = "/".join(implicit_path) + "/implicit"
-    print('implicit path', implicit_path)
-    self.SERVER = os.popen(f"cd {implicit_path} && flask run")
+    # implicit_path = filepath.split(sep="/")
+    # implicit_path = "/".join(implicit_path) + "/implicit"
+    # print('implicit path', implicit_path)
+    self.SERVER = os.popen(f"flask run")
     
     # Inform the scraper that the server is running
     self.ON = True
@@ -56,18 +86,18 @@ class API:
     options.add_argument('headless')
 
     # Open firefox
-    driver = webdriver.Firefox(options=options)
+    self.driver = webdriver.Firefox(options=options)
     
     # Go to website
-    driver.get('http://127.0.0.1:5000/')
+    self.driver.get('http://127.0.0.1:5000/')
     
     # Click login
-    btn = driver.find_element(By.XPATH, '//a[@href="/auth"]')
-    driver.execute_script("arguments[0].click();", btn)
+    btn = self.driver.find_element(By.XPATH, '//a[@href="/auth"]')
+    self.driver.execute_script("arguments[0].click();", btn)
 
     # Log in
-    email = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR,"input[id='login-username']")))
-    password = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR,"input[id='login-password']")))
+    email = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR,"input[id='login-username']")))
+    password = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR,"input[id='login-password']")))
 
     email.clear()
     password.clear()
@@ -75,25 +105,26 @@ class API:
     email.send_keys(os.environ.get("EMAIL"))
     password.send_keys(os.environ.get("PASSWORD"))
 
-    WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR,"button[id='login-button']"))).click()
+    WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR,"button[id='login-button']"))).click()
 
     try:
-      WebDriverWait(driver, 2).until(EC.element_to_be_clickable((By.CSS_SELECTOR,"button[class='Button-qlcn5g-0 jWBSO']"))).click()
+      WebDriverWait(self.driver, 2).until(EC.element_to_be_clickable((By.CSS_SELECTOR,"button[class='Button-qlcn5g-0 jWBSO']"))).click()
     except:
       print()
 
     # Get auth token
-    url = driver.current_url
+    url = self.driver.current_url
     def find_between(s, start, end):
       return (s.split(start))[1].split(end)[0]
     self.ACCESS_TOKEN = find_between(url, 'access_token=', '&token_type=')
+    self.REFRESH_TOKEN = find_between(url, 'refresh_token=', '&expires_in=')
 
     # Set it
     # Close site
-    driver.quit()
+    self.driver.quit()
     if self.ON:
       self.ON = False
-      # Very hacky way to exit, because it doesn't actually work lol. Right now behavior works properly because the ACCESS_TOKEN is set, and the refreshToken checks for it before running Client Credential Flow.
+      # Very hacky way to exit, because it doesn't actually work lol. Right now behavior works properly because the ACCESS_TOKEN is set, and the requestToken checks for it before running Client Credential Flow.
       self.SERVER.send_signal(signal.CTRL_C_EVENT)
 
   def ImplicitGrantFlow(self):
@@ -101,6 +132,8 @@ class API:
     self.Login()
 
   def ClientCredentialsFlow(self):
+    now = time.time()
+
     # The data to be sent
     url = "https://accounts.spotify.com/api/token"
 
@@ -121,6 +154,9 @@ class API:
     # Update the access token
     self.ACCESS_TOKEN = json.loads(response.text)["access_token"]
     print (response.reason)
+
+    expiration = json.loads(response.text)["expires_in"]
+    self.expiration = now + expiration
 
   def getPlaylists(self, user=os.environ.get("USER_ID"), offset=0, limit=20):
     """Get the public playlists of the specified user (default is the test user)
