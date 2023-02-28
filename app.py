@@ -37,7 +37,7 @@ api = API()
 
 @app.route('/')
 def index():
-    return render_template('index.html', token=api.ACCESS_TOKEN)
+    return render_template('index.html')
 
 
 @app.route('/auth')
@@ -59,6 +59,7 @@ def auth():
 
     res = make_response(redirect(f'{AUTH_URL}/?{urlencode(payload)}'))
 
+    print(res)
     return res
 
 
@@ -68,6 +69,7 @@ def callback():
     state = request.args.get('state')
 
     if error:
+        print("Error: %s, State: %s" % (error, state))
         app.logger.error('Error: %s, State: %s', error, state)
         abort(400)
 
@@ -97,20 +99,10 @@ def playlists():
     #     return track
     # return "No track currently playing."
 
-
-# # Added to allow the redirect to the Spotify login page
-# @app.after_request
-# def add_security_headers(response):
-#     # TODO make a CSP policy that allows the redirect to spotify's authentification page using this as a reference: csp.withgoogle.com/docs/strict-csp.html
-#     # response.headers['Content-Security-Policy'] = "default-src 'https' ; script-src 'self' 'http'" # for allowing the redirect to spotify's authentification page
-#     # response.headers['Content-Security-Policy'] = "script-src 'unsafe-inline'" # for allowing the redirect to spotify's authentification page
-#     # response.headers["Access-Control-Allow-Origin"] = "*"
-#     return response
-
 '''
 Following lines allow application to be run more conveniently with
 `python app.py` (Make sure you're using python3)
 (Also includes directive to leverage pythons threading capacity.)
 '''
 if __name__ == '__main__':
-    app.run(threaded=True, port=int(os.environ.get("PORT", os.environ.get("SPOTIPY_REDIRECT_URI", 5000).split(":")[-1]).split("/")[0]), debug=True)
+    app.run(threaded=True, port=int(os.environ.get("PORT", os.environ.get("REDIRECT_URI", 5000).split(":")[-1]).split("/")[0]), debug=True)

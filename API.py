@@ -17,28 +17,7 @@ class API:
   def __init__(self):
     self.ACCESS_TOKEN = None
     self.REFRESH_TOKEN = None
-    self.requestToken()
     # self.ClientCredentialsFlow()
-
-  def requestToken(self):
-    # TODO check if this works
-    if self.ACCESS_TOKEN != None:
-      print("Access token already exists. Refreshing the token.")
-      self.refreshToken()
-
-    try:
-      self.ImplicitGrantFlow()
-    except:
-      if self.ACCESS_TOKEN == None:
-        self.ClientCredentialsFlow()
-        # Check if any self.driver windows are open and if so then close them
-        # This is a hacky way to close the self.driver windows, but it works for now.
-        # TODO fix this
-        try:
-          self.driver.quit()
-        except:
-          pass
-        print("Client Credential Flow. If you wish to alter user playlists, look up how to run selenium with the Firefox self.driver.")
 
   # TODO check if this works
   def refreshToken(self):
@@ -64,72 +43,6 @@ class API:
 
     self.ACCESS_TOKEN = res['access_token']
     self.REFRESH_TOKEN = res['refresh_token']
-
-  def RunServer(self):
-    # cwd = os.getcwd()
-    filepath = str(pathlib.Path(__file__).resolve().parent)
-    print('filepath', filepath)
-    # implicit_path = filepath.split(sep="/")
-    # implicit_path = "/".join(implicit_path) + "/implicit"
-    # print('implicit path', implicit_path)
-    self.SERVER = os.popen(f"flask run")
-    
-    # Inform the scraper that the server is running
-    self.ON = True
-
-  def Login(self):
-    while not self.ON:
-      time.sleep(1)
-
-    options = webdriver.FirefoxOptions()
-    # Hides the window
-    options.add_argument('headless')
-
-    # Open firefox
-    self.driver = webdriver.Firefox(options=options)
-    
-    # Go to website
-    self.driver.get('http://127.0.0.1:5000/')
-    
-    # Click login
-    btn = self.driver.find_element(By.XPATH, '//a[@href="/auth"]')
-    self.driver.execute_script("arguments[0].click();", btn)
-
-    # Log in
-    email = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR,"input[id='login-username']")))
-    password = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR,"input[id='login-password']")))
-
-    email.clear()
-    password.clear()
-
-    email.send_keys(os.environ.get("EMAIL"))
-    password.send_keys(os.environ.get("PASSWORD"))
-
-    WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR,"button[id='login-button']"))).click()
-
-    try:
-      WebDriverWait(self.driver, 2).until(EC.element_to_be_clickable((By.CSS_SELECTOR,"button[class='Button-qlcn5g-0 jWBSO']"))).click()
-    except:
-      print()
-
-    # Get auth token
-    url = self.driver.current_url
-    def find_between(s, start, end):
-      return (s.split(start))[1].split(end)[0]
-    self.ACCESS_TOKEN = find_between(url, 'access_token=', '&token_type=')
-    self.REFRESH_TOKEN = find_between(url, 'refresh_token=', '&expires_in=')
-
-    # Set it
-    # Close site
-    self.driver.quit()
-    if self.ON:
-      self.ON = False
-      # Very hacky way to exit, because it doesn't actually work lol. Right now behavior works properly because the ACCESS_TOKEN is set, and the requestToken checks for it before running Client Credential Flow.
-      self.SERVER.send_signal(signal.CTRL_C_EVENT)
-
-  def ImplicitGrantFlow(self):
-    self.RunServer()
-    self.Login()
 
   def ClientCredentialsFlow(self):
     now = time.time()
