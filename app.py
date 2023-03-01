@@ -1,5 +1,5 @@
 import os
-from flask import Flask, session, request, redirect, abort, render_template, make_response
+from flask import Flask, session, request, redirect, abort, render_template, make_response, send_from_directory
 from urllib.parse import urlencode
 import logging
 import secrets
@@ -7,6 +7,9 @@ import string
 from flask_session import Session
 from API import API
 
+import requests
+import base64
+import json
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.urandom(64)
@@ -22,6 +25,7 @@ logging.basicConfig(
 
 # Client info
 CLIENT_ID = os.getenv('CLIENT_ID')
+CLIENT_SECRET = os.getenv('CLIENT_SECRET')
 REDIRECT_URI = os.getenv('REDIRECT_URI')
 
 # Spotify API endpoints
@@ -50,16 +54,22 @@ def auth():
     # Request authorization from user
     # Only including `state` here for error logging purposes.
     payload = {
+        'response_type': 'code',
         'client_id': CLIENT_ID,
-        'response_type': 'token',
-        'redirect_uri': REDIRECT_URI,
         'scope': 'playlist-modify-public playlist-read-private playlist-modify-private',
+        'redirect_uri': REDIRECT_URI,
         'state': state,
     }
 
+    # Make a request with the above payload and set the variables 'access_token' and 'refresh_token' to the response
+    print('Going to')
+    print(f'{AUTH_URL}/?{urlencode(payload)}')
+
     res = make_response(redirect(f'{AUTH_URL}/?{urlencode(payload)}'))
 
-    print(res)
+    print()
+    print(res.data)
+    print()
     return res
 
 
@@ -73,13 +83,46 @@ def callback():
         app.logger.error('Error: %s, State: %s', error, state)
         abort(400)
 
-    return render_template('profile.html')
+
+    # Get the refresh and access tokens from the response
+    url = "https://accounts.spotify.com/api/token"
+    payload = {
+        "code": request.args.get('code'),
+        "redirect_uri": REDIRECT_URI,
+        "grant_type": "authorization_code",
+    }
+    headers = {
+        "Authorization": f"Basic {base64.b64encode(bytes(os.environ.get('CLIENT_ID') + ':' + os.environ.get('CLIENT_SECRET'), 'ISO-8859-1')).decode('ascii')}",
+        "Content-Type": "application/x-www-form-urlencoded",
+    }
+
+    response = requests.post(url, data=payload, headers=headers)
+    response_json = response.json()
+    access_token = response_json["access_token"]
+    refresh_token = response_json["refresh_token"]
+    print()
+    print('Access token: ' + access_token)
+    print('Refresh token: ' + refresh_token)
+    print()
+
+    api.ACCESS_TOKEN = access_token
+    api.REFRESH_TOKEN = refresh_token
+    
+    playlists = api.getPlaylists()
+    print(playlists)
+
+    return render_template('showplaylists.html', access_token=api.ACCESS_TOKEN, refresh_token=api.REFRESH_TOKEN, playlists=playlists)
 
 
 @app.route('/sign_out')
 def sign_out():
     session.pop("token_info", None)
     return redirect('/')
+
+
+@app.route('/favicon.ico')
+def favicon():
+    return send_from_directory(os.path.join(app.root_path, 'static'), 'favicon.ico')
 
 
 @app.route('/playlists')

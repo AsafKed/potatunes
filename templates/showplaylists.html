@@ -1,0 +1,15 @@
+<!-- make a logged in successfully page in flask style html -->
+{% extends "base.html" %}
+{% block title %}Login success{% endblock %}
+{% block header %}Success!{% endblock %}
+{% block content %}
+
+<!-- write that the user was logged in successfully below -->
+<h2>Logged in successfully</h2>
+
+<!-- show the user's name -->
+<p>Access token</p>
+<p>{{access_token}}</p>
+<p>Refresh token</p>
+<p>{{refresh_token}}</p>
+{% endblock %}
