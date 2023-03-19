@@ -1,20 +1,29 @@
-import os
-from flask import Flask, session, request, redirect, abort, render_template, make_response, send_from_directory
-from urllib.parse import urlencode
-import logging
-import secrets
-import string
+# For flask server
+from flask import Flask, session, request, redirect, abort, render_template, make_response, send_from_directory, jsonify
+from flask_cors import CORS, cross_origin
+# from flask_cors import CORS
 from flask_session import Session
-from API import API
 
+# For environment interaction
+import os
+import logging
+
+# For API related stuff
+from API import API
 import requests
-import base64
 import json
+from urllib.parse import urlencode
+
+# For string operations
+import secrets
+import base64
+import string
 
 app = Flask(__name__)
+CORS(app, resources={r"/testjson": {"origins": ["https://potatunes.com", "http://localhost:8080"]}})
 app.config['SECRET_KEY'] = os.urandom(64)
-app.config['SESSION_TYPE'] = 'filesystem'
-app.config['SESSION_FILE_DIR'] = './.flask_session/'
+# app.config['SESSION_TYPE'] = 'filesystem'
+# app.config['SESSION_FILE_DIR'] = './.flask_session/'
 # Session(app)
 
 
@@ -100,19 +109,14 @@ def callback():
     response_json = response.json()
     access_token = response_json["access_token"]
     refresh_token = response_json["refresh_token"]
-    print()
-    print('Access token: ' + access_token)
-    print('Refresh token: ' + refresh_token)
-    print()
 
     api.ACCESS_TOKEN = access_token
     api.REFRESH_TOKEN = refresh_token
-    
-    playlists = api.getPlaylists()
-    print(playlists)
 
-    return render_template('showplaylists.html', access_token=api.ACCESS_TOKEN, refresh_token=api.REFRESH_TOKEN, playlists=playlists)
+    # TODO don't print the access token and refresh token?
+    return render_template('success.html', access_token=api.ACCESS_TOKEN, refresh_token=api.REFRESH_TOKEN, playlists=playlists)
 
+# TODO make a function that refreshes the access token
 
 @app.route('/sign_out')
 def sign_out():
@@ -129,6 +133,18 @@ def favicon():
 def playlists():
     pass
 
+@app.route('/testjson', methods=['GET'])
+@cross_origin(origin=["https://potatunes.com", 'localhost'], headers=['Content- Type', 'Authorization'])
+def testjson():
+    print("testjson endpoint reached")
+    with open('test.json') as f:
+        data = json.load(f)
+        data.append({
+            "username": "user4",
+            "pets": ["hamster"]
+        })
+
+        return jsonify(data)
 
 # @app.route('/currently_playing')
 # def currently_playing():
@@ -148,4 +164,5 @@ Following lines allow application to be run more conveniently with
 (Also includes directive to leverage pythons threading capacity.)
 '''
 if __name__ == '__main__':
-    app.run(threaded=True, port=int(os.environ.get("PORT", os.environ.get("REDIRECT_URI", 5000).split(":")[-1]).split("/")[0]), debug=True)
+    # The port isn't set here, it's set in the environment variable FLASK_RUN_PORT
+    app.run(threaded=True, debug=True)
