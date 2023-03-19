@@ -107,14 +107,19 @@ def callback():
 
     response = requests.post(url, data=payload, headers=headers)
     response_json = response.json()
+
     access_token = response_json["access_token"]
     refresh_token = response_json["refresh_token"]
 
     api.ACCESS_TOKEN = access_token
     api.REFRESH_TOKEN = refresh_token
 
+    user = api.getCurrentUser()
+
     # TODO don't print the access token and refresh token?
-    return render_template('success.html', access_token=api.ACCESS_TOKEN, refresh_token=api.REFRESH_TOKEN, playlists=playlists)
+    return render_template('success.html', access_token=api.ACCESS_TOKEN, 
+                           refresh_token=api.REFRESH_TOKEN, name=user['display_name'], 
+                           id=user['id'], image=user['image_url'])
 
 # TODO make a function that refreshes the access token
 

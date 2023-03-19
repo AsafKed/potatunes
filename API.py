@@ -170,6 +170,20 @@ class API:
     expiration = json.loads(response.text)["expires_in"]
     self.expiration = now + expiration
 
+  def getCurrentUser(self):
+    url = "https://api.spotify.com/v1/me"
+    headers = {
+      'Authorization': f'Bearer {self.ACCESS_TOKEN}'
+    }
+    response = requests.get(url, headers=headers)
+    response = response.json()
+    # only return the following fields: display_name, id, images.url
+    return {
+      "display_name": response["display_name"],
+      "id": response["id"],
+      "image_url": response["images"][0]["url"]
+    }
+  
   def getPlaylists(self, user=os.environ.get("USER_ID"), offset=0, limit=20):
     """Get the public playlists of the specified user (default is the test user)
 

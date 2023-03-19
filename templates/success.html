@@ -3,11 +3,14 @@
 {% block title %}Login success{% endblock %}
 {% block header %}Success!{% endblock %}
 {% block content %}
+<a href="{{ url_for('index') }}">Home</a>
 
 <!-- write that the user was logged in successfully below -->
 <h2>Logged in successfully</h2>
 
 <!-- show the user's name -->
+<img src="{{image}}" alt="profile image">
+<p>Welcome back, {{name}}, with id {{id}}</p>
 <p>Access token</p>
 <p>{{access_token}}</p>
 <p>Refresh token</p>
