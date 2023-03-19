@@ -1,5 +1,5 @@
 # For flask server
-from flask import Flask, session, request, redirect, abort, render_template, make_response, send_from_directory, jsonify
+from flask import Flask, session, request, redirect, abort, render_template, make_response, send_from_directory, jsonify, Response
 from flask_cors import CORS, cross_origin
 # from flask_cors import CORS
 from flask_session import Session
@@ -133,18 +133,30 @@ def favicon():
 def playlists():
     pass
 
-@app.route('/testjson', methods=['GET'])
-@cross_origin(origin=["https://potatunes.com", 'localhost'], headers=['Content- Type', 'Authorization'])
+# To interact with the frontend
+@app.route('/testjson', methods=['GET', 'PUT', 'POST'])
+@cross_origin(origin=["https://potatunes.com", 'http://localhost'], headers=['Content-Type', 'Authorization'])
 def testjson():
-    print("testjson endpoint reached")
-    with open('test.json') as f:
-        data = json.load(f)
-        data.append({
-            "username": "user4",
-            "pets": ["hamster"]
-        })
+    if request.method == "GET":
+        with open("test.json", "r") as f:
+            data = json.load(f)
+            data.append({
+                "username": "user4",
+                "pets": ["hamster"]
+            })
+            return jsonify(data)
+        
+    if request.method == "PUT" or request.method == "POST":
+        received_data = request.get_json()
+        print(f"received data: {received_data}")
+        # message = received_data['data']
+        return_data = {
+            "status": "success",
+            "message": f"received: {received_data}"
+        }
+        return Response(response=json.dumps(return_data), status=201)
 
-        return jsonify(data)
+
 
 # @app.route('/currently_playing')
 # def currently_playing():
