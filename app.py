@@ -117,9 +117,10 @@ def callback():
     user = api.getCurrentUser()
 
     # TODO don't print the access token and refresh token?
-    return render_template('success.html', access_token=api.ACCESS_TOKEN, 
-                           refresh_token=api.REFRESH_TOKEN, name=user['display_name'], 
-                           id=user['id'], image=user['image_url'])
+    # return render_template('success.html', access_token=api.ACCESS_TOKEN, 
+    #                        refresh_token=api.REFRESH_TOKEN, name=user['display_name'], 
+    #                        id=user['id'], image=user['image_url'])
+    return redirect('http://localhost:8080/')
 
 # TODO make a function that refreshes the access token
 
