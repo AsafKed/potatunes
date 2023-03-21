@@ -20,7 +20,7 @@ import base64
 import string
 
 app = Flask(__name__)
-CORS(app, resources={r"/testjson": {"origins": ["https://potatunes.com", "http://localhost:8080"]}})
+CORS(app, resources={r"/testjson": {"origins": ["https://potatunes.com", "http://localhost:5000"]}})
 app.config['SECRET_KEY'] = os.urandom(64)
 # app.config['SESSION_TYPE'] = 'filesystem'
 # app.config['SESSION_FILE_DIR'] = './.flask_session/'
@@ -48,8 +48,18 @@ app.secret_key = os.getenv('SECRET_KEY')
 
 api = API()
 
+session_id = ''
+
 @app.route('/')
-def index():
+def home():
+    # print "This is the backend!"
+    return 'This is the backend!'
+
+
+@app.route('/sessionId=<newSession>')
+def index(newSession):
+    global session_id
+    session_id = newSession
     return render_template('index.html')
 
 
@@ -115,12 +125,15 @@ def callback():
     api.REFRESH_TOKEN = refresh_token
 
     user = api.getCurrentUser()
+    user['session_id'] = session_id
+
+    # TODO PUT the users to the redirect url
 
     # TODO don't print the access token and refresh token?
     # return render_template('success.html', access_token=api.ACCESS_TOKEN, 
     #                        refresh_token=api.REFRESH_TOKEN, name=user['display_name'], 
     #                        id=user['id'], image=user['image_url'])
-    return redirect('http://localhost:8080/')
+    return redirect('http://localhost:3000/')
 
 # TODO make a function that refreshes the access token
 
