@@ -9,7 +9,7 @@ import os
 import logging
 
 # For API related stuff
-from API import API
+from Spotify_API import Spotify_API
 import requests
 import json
 from urllib.parse import urlencode
@@ -46,7 +46,7 @@ SEARCH_ENDPOINT = 'https://api.spotify.com/v1/search'
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY')
 
-api = API()
+api = Spotify_API()
 
 session_id = ''
 

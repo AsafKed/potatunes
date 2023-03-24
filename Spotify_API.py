@@ -13,7 +13,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 
 
-class API:
+class Spotify_API:
   def __init__(self):
     self.ACCESS_TOKEN = None
     self.REFRESH_TOKEN = None
