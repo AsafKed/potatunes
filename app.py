@@ -55,8 +55,8 @@ def home():
     # print "This is the backend!"
     return 'This is the backend!'
 
-
-@app.route('/sessionId=<newSession>')
+# Used for testing purposes
+@app.route('/session_id=<newSession>')
 def index(newSession):
     global session_id
     session_id = newSession
@@ -94,6 +94,7 @@ def auth():
 
 @app.route('/callback')
 def callback():
+    global session_id
     error = request.args.get('error')
     state = request.args.get('state')
 
@@ -102,6 +103,8 @@ def callback():
         app.logger.error('Error: %s, State: %s', error, state)
         abort(400)
 
+    # Set the global session_id to the state, to be returned to the frontend in the redirect
+    session_id = state
 
     # Get the refresh and access tokens from the response
     url = "https://accounts.spotify.com/api/token"
@@ -115,8 +118,21 @@ def callback():
         "Content-Type": "application/x-www-form-urlencoded",
     }
 
+    print()
+    print("making request in callback")
+    print()
+    
+    print()
+    print('state: %s' % state)
+    print()
+    
     response = requests.post(url, data=payload, headers=headers)
     response_json = response.json()
+
+    print()
+    print("response_json")
+    print(response_json)
+    print()
 
     access_token = response_json["access_token"]
     refresh_token = response_json["refresh_token"]
@@ -127,6 +143,7 @@ def callback():
     user = api.getCurrentUser()
     user['session_id'] = session_id
 
+    print(user)
     # TODO PUT the users to the redirect url
 
     # TODO don't print the access token and refresh token?
