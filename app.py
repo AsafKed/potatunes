@@ -19,6 +19,10 @@ import secrets
 import base64
 import string
 
+# For Neo4J
+from Neo4J_Worker import App as Neo
+
+
 app = Flask(__name__)
 CORS(app, resources={r"/testjson": {"origins": ["https://potatunes.com", "http://localhost:5000"]}})
 app.config['SECRET_KEY'] = os.urandom(64)
@@ -117,22 +121,9 @@ def callback():
         "Authorization": f"Basic {base64.b64encode(bytes(os.environ.get('CLIENT_ID') + ':' + os.environ.get('CLIENT_SECRET'), 'ISO-8859-1')).decode('ascii')}",
         "Content-Type": "application/x-www-form-urlencoded",
     }
-
-    print()
-    print("making request in callback")
-    print()
-    
-    print()
-    print('state: %s' % state)
-    print()
     
     response = requests.post(url, data=payload, headers=headers)
     response_json = response.json()
-
-    print()
-    print("response_json")
-    print(response_json)
-    print()
 
     access_token = response_json["access_token"]
     refresh_token = response_json["refresh_token"]
@@ -141,10 +132,13 @@ def callback():
     api.REFRESH_TOKEN = refresh_token
 
     user = api.getCurrentUser()
-    user['session_id'] = session_id
 
     print(user)
     # TODO add the users and session to the Neo4j database
+    # This also creates the session if it does not exist
+    neo = Neo()
+    neo.create_user(name=user['display_name'], user_id=user['id'], image_url=user['image_url'], session_id=session_id)
+    neo.close()
 
     # TODO don't print the access token and refresh token?
     # return render_template('success.html', access_token=api.ACCESS_TOKEN, 
