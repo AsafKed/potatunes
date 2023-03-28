@@ -120,46 +120,30 @@ class App:
         Uniqueness_Check(result)
         return result[0]
     
-    # def add_user_to_session(self, user_id, session_id):
-    #     with self.driver.session(database="neo4j") as session:
-    #         result = session.execute_write(
-    #             self._add_user_to_session, user_id, session_id)
+    def add_user_to_session(self, user_id, session_id):
+        with self.driver.session(database="neo4j") as session:
+            result = session.execute_write(
+                self._add_user_to_session, user_id, session_id)
 
-    #         return result
+            return result
         
-    # @staticmethod
-    # def _add_user_to_session(tx, user_id, session_id):
-    #     # Get today's date in the format YYYY-MM-DD
-    #     today = datetime.today().strftime('%Y-%m-%d')
+    @staticmethod
+    def _add_user_to_session(tx, user_id, session_id):
+        # Get today's date in the format YYYY-MM-DD
+        today = datetime.today().strftime('%Y-%m-%d')
 
-    #     query = (
-    #         """ MATCH (p:Person { user_id: $user_id })
-    #             MATCH (s:Session { session_id: $session_id, date: $today })
-    #             MERGE (p)-[r:ATTENDED { date: $today }]->(s)
-    #             RETURN p.name AS name, p.user_id AS user_id, s.session_id AS session_id, r.date AS date
-    #         """
-    #     )
-    #     result = tx.run(query, user_id=user_id, session_id=session_id, today=today)
+        query = (
+            """ MATCH (p:Person { user_id: $user_id })
+                MATCH (s:Session { session_id: $session_id })
+                MERGE (p)-[r:ATTENDED { date: $today }]->(s)
+                RETURN p.name AS name, p.user_id AS user_id, s.session_id AS session_id, r.date AS date
+            """
+        )
+        result = tx.run(query, user_id=user_id, session_id=session_id, today=today).data()
+        Uniqueness_Check(result)
+        person = result[0]
+        return person
         
-    #     # Turn the result into a list of dictionaries
-    #     result = result.data()
-        
-    #     # Check that only one person with this name and id exists
-    #     Uniqueness_Check(result)
-        
-    #     person = result[0]
-    #     return person
-
-    # def create_user_and_session(self, name, user_id, image_url, session_id):
-    #     # Create user and make a relation to the session
-    #     with self.driver.session(database="neo4j") as session:
-    #         # Write transactions allow the driver to handle retries and transient errors
-    #         result = session.execute_write(
-    #             self._create_and_return_user_and_session, name, user_id, image_url, session_id)
-    #         for row in result:
-    #             print("Created user and session between: {p}, {s}".format(
-    #                 p=row['p'], s=row['s']))
-
     def find_person(self, person_name):
         with self.driver.session(database="neo4j") as session:
             result = session.execute_read(
