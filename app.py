@@ -14,6 +14,10 @@ import requests
 import json
 from urllib.parse import urlencode
 
+# For websocket (this enables the server to send messages to the client "automagically", without the client having to ask for it)
+# from Socket_Worker import socketio, add_user
+from flask_socketio import SocketIO, join_room, emit
+
 # For string operations
 import secrets
 import base64
@@ -22,10 +26,16 @@ import string
 # For Neo4J
 from Neo4J_Worker import App as Neo
 
-
 app = Flask(__name__)
 CORS(app, resources={r"/testjson": {"origins": ["https://potatunes.com", "http://localhost:5000"]}})
+
 app.config['SECRET_KEY'] = os.urandom(64)
+
+# TODO: update this to work with production URL on production server
+socketio = SocketIO(app, cors_allowed_origins="*", logger=True, engineio_logger=True)
+socketio.init_app(app)
+
+
 # app.config['SESSION_TYPE'] = 'filesystem'
 # app.config['SESSION_FILE_DIR'] = './.flask_session/'
 # Session(app)
@@ -49,6 +59,7 @@ SEARCH_ENDPOINT = 'https://api.spotify.com/v1/search'
 # Start 'er up
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY')
+socketio.init_app(app)
 
 api = Spotify_API()
 
@@ -56,7 +67,6 @@ session_id = ''
 
 @app.route('/')
 def home():
-    # print "This is the backend!"
     return 'This is the backend!'
 
 # Used for testing purposes
@@ -134,8 +144,17 @@ def callback():
     user = api.getCurrentUser()
 
     print(user)
+
+    print('adding user to database')
+    neo = Neo()
+    neo.create_user(name=user['display_name'], user_id=user['id'], image_url=user['image_url'], session_id=session_id)
+    neo.close()
+
     # TODO add the users and session to the Neo4j database
     # This also creates the session if it does not exist
+    # add_user({'name': user['display_name'], 'user_id': user['id'], 'image_url': user['image_url'], 'session_id': session_id})
+
+    # Add the user and session to the Neo4j database
     neo = Neo()
     neo.create_user(name=user['display_name'], user_id=user['id'], image_url=user['image_url'], session_id=session_id)
     neo.close()
@@ -144,24 +163,69 @@ def callback():
     # return render_template('success.html', access_token=api.ACCESS_TOKEN, 
     #                        refresh_token=api.REFRESH_TOKEN, name=user['display_name'], 
     #                        id=user['id'], image=user['image_url'])
-    return redirect('http://localhost:3000/session_id/' + session_id)
+    redirect_url = f"http://localhost:3000/users/{user['id']}/{session_id}"
+    return redirect(redirect_url)
 
-# TODO make a function that refreshes the access token
+# TODO make a function that refreshes the access token?
 
 @app.route('/sign_out')
 def sign_out():
     session.pop("token_info", None)
     return redirect('/')
 
-
 @app.route('/favicon.ico')
 def favicon():
     return send_from_directory(os.path.join(app.root_path, 'static'), 'favicon.ico')
 
+# When a client joins the session
+@socketio.on("join")
+def on_join(session_id):
+    # TODO open the neo4j connection here, not in the callback function
+    join_room(session_id)
+    emit("join", session_id, room=session_id, to=session_id)
 
-@app.route('/playlists')
-def playlists():
-    pass
+@socketio.on("users")
+def get_users():
+    # TODO need to fix WSGI to enable this
+    # https://flask-socketio.readthedocs.io/en/latest/deployment.html
+    global session_id
+    print("Getting users for session: " + session_id)
+    neo = Neo()
+    users = neo.get_users(session_id)
+    neo.close()
+    emit("users", users, to=session_id)
+
+@socketio.on("users")
+def add_user(user):
+    print("Adding user to session: " + user["session_id"])
+    neo = Neo()
+    neo.create_user(name=user["username"], session_id=user["session_id"])
+    neo.close()
+    emit("users", user["username"], to=user["session_id"])
+
+# # When a client leaves the session
+@socketio.on("leave")
+def on_leave(session_id):
+#     # TODO close the neo4j connection here, not in the callback function
+    print("Leaving session: " + session_id)
+#     leave_room(session_id)
+#     emit("leave", session_id, room=session_id, to=session_id)
+
+# When a client disconnects
+@socketio.on("disconnect")
+def on_disconnect():
+    print("Client disconnected")
+
+# To interact with Neo4j
+@app.route('/neo4j')
+def neo4j():
+    neo = Neo()
+    person = neo.create_user(name="Asaf Kedem", user_id="21hrln7z7x7afddwq263yj34q", image_url="test3")
+    # person = neo.find_person('Asaf Kedem')
+    # person = neo.find_person_by_id('21hrln7z7x7afddwq263yj34q')
+    neo.close()
+    print(person)
+    return person
 
 # To interact with the frontend
 @app.route('/testjson', methods=['GET', 'PUT', 'POST'])
@@ -186,20 +250,6 @@ def testjson():
         }
         return Response(response=json.dumps(return_data), status=201)
 
-
-
-# @app.route('/currently_playing')
-# def currently_playing():
-    # cache_handler = spotipy.cache_handler.FlaskSessionCacheHandler(session)
-    # auth_manager = spotipy.oauth2.SpotifyOAuth(cache_handler=cache_handler)
-    # if not auth_manager.validate_token(cache_handler.get_cached_token()):
-    #     return redirect('/')
-    # spotify = spotipy.Spotify(auth_manager=auth_manager)
-    # track = spotify.current_user_playing_track()
-    # if not track is None:
-    #     return track
-    # return "No track currently playing."
-
 '''
 Following lines allow application to be run more conveniently with
 `python app.py` (Make sure you're using python3)
@@ -207,4 +257,5 @@ Following lines allow application to be run more conveniently with
 '''
 if __name__ == '__main__':
     # The port isn't set here, it's set in the environment variable FLASK_RUN_PORT
-    app.run(threaded=True, debug=True)
+    # app.run(threaded=True, debug=True)
+    socketio.run(app)
