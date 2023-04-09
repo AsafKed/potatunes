@@ -147,17 +147,14 @@ def callback():
 
     print('adding user to database')
     neo = Neo()
-    neo.create_user(name=user['display_name'], user_id=user['id'], image_url=user['image_url'], session_id=session_id)
+    neo.create_user(name=user['display_name'], user_id=user['id'], image_url=user['image_url'])
+    neo.create_session(session_id=session_id)
+    neo.add_user_to_session(user_id=user['id'], session_id=session_id)
     neo.close()
 
     # TODO add the users and session to the Neo4j database
     # This also creates the session if it does not exist
     # add_user({'name': user['display_name'], 'user_id': user['id'], 'image_url': user['image_url'], 'session_id': session_id})
-
-    # Add the user and session to the Neo4j database
-    neo = Neo()
-    neo.create_user(name=user['display_name'], user_id=user['id'], image_url=user['image_url'], session_id=session_id)
-    neo.close()
 
     # TODO don't print the access token and refresh token?
     # return render_template('success.html', access_token=api.ACCESS_TOKEN, 
@@ -177,36 +174,49 @@ def sign_out():
 def favicon():
     return send_from_directory(os.path.join(app.root_path, 'static'), 'favicon.ico')
 
+users_in_room = []
+
 # When a client joins the session
-@socketio.on("join")
-def on_join(session_id):
-    # TODO open the neo4j connection here, not in the callback function
-    join_room(session_id)
-    emit("join", session_id, room=session_id, to=session_id)
+@socketio.on('join')
+def on_join(data):
+    user_id = data['user_id']
+    room = data['session_id']
+    join_room(room)
+
+    neo = Neo()
+    name = neo.find_person_by_id(user_id)
+    neo.close()
+
+    users_in_room.append(name)
+
+    emit({"users": users_in_room}, to=room)
+
+# @socketio.on("users")
+# def add_user(data):    
+#     neo = Neo()
+#     name = neo.find_person_by_id(data["user_id"])
+#     neo.close()
+#     room = data['session_id']
+#     emit("users", user["username"], to=user["session_id"])
 
 @socketio.on("users")
 def get_users():
-    # TODO need to fix WSGI to enable this
     # https://flask-socketio.readthedocs.io/en/latest/deployment.html
     global session_id
-    print("Getting users for session: " + session_id)
+    names = []
     neo = Neo()
-    users = neo.get_users(session_id)
+    for user in users_in_room:
+        # find person by id
+        name = neo.find_person_by_id(user)
+        names.append(name)
+    # users = neo.get_users(session_id) # TODO get the users from the database in the room
     neo.close()
-    emit("users", users, to=session_id)
+    emit("users", names, to=session_id)
 
-@socketio.on("users")
-def add_user(user):
-    print("Adding user to session: " + user["session_id"])
-    neo = Neo()
-    neo.create_user(name=user["username"], session_id=user["session_id"])
-    neo.close()
-    emit("users", user["username"], to=user["session_id"])
 
 # # When a client leaves the session
 @socketio.on("leave")
 def on_leave(session_id):
-#     # TODO close the neo4j connection here, not in the callback function
     print("Leaving session: " + session_id)
 #     leave_room(session_id)
 #     emit("leave", session_id, room=session_id, to=session_id)
@@ -220,12 +230,9 @@ def on_disconnect():
 @app.route('/neo4j')
 def neo4j():
     neo = Neo()
-    person = neo.create_user(name="Asaf Kedem", user_id="21hrln7z7x7afddwq263yj34q", image_url="test3")
-    # person = neo.find_person('Asaf Kedem')
-    # person = neo.find_person_by_id('21hrln7z7x7afddwq263yj34q')
+    users = neo.get_users_by_session('testsession2')
     neo.close()
-    print(person)
-    return person
+    return users
 
 # To interact with the frontend
 @app.route('/testjson', methods=['GET', 'PUT', 'POST'])

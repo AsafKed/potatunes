@@ -181,15 +181,17 @@ class App:
         result = tx.run(query, user_id=user_id)
         return [row["name"] for row in result]
 
-    def get_users(self, session_id):
+    def get_users_by_session(self, session_id):
         with self.driver.session(database="neo4j") as session:
             result = session.execute_read(
-                self._get_users, session_id)
+                self._get_users_by_session, session_id)
             for row in result:
                 print("Found person: {row}".format(row=row))
+            
+            return result
 
     @staticmethod
-    def _get_users(tx, session_id):
+    def _get_users_by_session(tx, session_id):
         query = (
             """
             MATCH (p:Person)-[:ATTENDED]->(s:Session)
@@ -197,9 +199,8 @@ class App:
             RETURN p.name AS name, p.image_url AS image_url
             """
         )
-        result = tx.run(query, session_id=session_id)
-        return [{"name": row["name"], "image_url": row["image_url"]} for row in result]
-
+        result = tx.run(query, session_id=session_id).data()
+        return result
 
 if __name__ == "__main__":
     # Aura queries use an encrypted connection using the "neo4j+s" URI scheme
